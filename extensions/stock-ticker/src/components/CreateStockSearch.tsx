@@ -23,7 +23,7 @@ export default function Command(props: { onCreate: (ticker: object) => void }) {
             key={index}
             title={searchResult.ticker}
             subtitle={searchResult.name}
-            accessories={[{ icon: Icon.Document, text: searchResult.currency_name }]}
+            accessories={[{ icon: Icon.Document, text: searchResult.currencyName }]}
             actions={
               <ActionPanel>
                 <ActionPanel.Section>
@@ -99,7 +99,7 @@ async function performSearch(searchText: string, signal: AbortSignal): Promise<S
     | {
         results: {
           ticker: string;
-          name: string,
+          name: string;
           market: string;
           locale: string;
           currency_name: string;
@@ -112,7 +112,14 @@ async function performSearch(searchText: string, signal: AbortSignal): Promise<S
   }
 
   const { results } = json;
-  return [results];
+  const searchResult = {
+    ticker: results.ticker,
+    name: results.name,
+    market: results.market.toUpperCase(),
+    locale: results.locale.toUpperCase(),
+    currencyName: results.currency_name.toUpperCase(),
+  };
+  return [searchResult];
 }
 
 interface SearchResult {
@@ -120,5 +127,5 @@ interface SearchResult {
   name: string,
   market: string,
   locale: string,
-  currency_name: string,
+  currencyName: string,
 }

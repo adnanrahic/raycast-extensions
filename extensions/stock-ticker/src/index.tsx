@@ -79,7 +79,7 @@ export default function Command() {
           key={stock.id}
           title={stock.ticker.ticker}
           subtitle={stock.ticker.name}
-          accessories={[{ icon: Icon.Document, text: stock.ticker.currency_name }]}
+          accessories={[{ icon: Icon.Document, text: stock.ticker.currencyName }]}
           actions={
             <ActionPanel>
               <ActionPanel.Section>

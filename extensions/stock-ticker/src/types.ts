@@ -5,7 +5,7 @@ interface Stock {
     name: string;
     market: string;
     locale: string;
-    currency_name: string;
+    currencyName: string;
   };
 }
 
