@@ -1,35 +1,44 @@
-import { ActionPanel, List, showToast, Action, Toast, Icon } from "@raycast/api";
+import { ActionPanel, List, showToast, Action, Toast, Icon, useNavigation } from "@raycast/api";
 import { useState, useEffect, useRef, useCallback } from "react";
 import fetch, { AbortError } from "node-fetch";
 
-export default function Command() {
+export default function Command(props: { onCreate: (ticker: object) => void }) {
   const [results, isLoading, search] = useSearch();
+  const { onCreate } = props;
+  const { pop } = useNavigation();
+
+  const handleCreate = useCallback(
+    (ticker: object) => {
+      onCreate(ticker);
+      pop();
+    },
+    [onCreate, pop]
+  );
 
   return (
-    <List isLoading={isLoading} onSearchTextChange={search} searchBarPlaceholder="Search npm packages..." throttle>
+    <List isLoading={isLoading} onSearchTextChange={search} searchBarPlaceholder="Search for more stock tickers..." throttle>
       <List.Section title="Results" subtitle={results.length + ""}>
-        {results.map((searchResult) => (
-          <SearchListItem key={searchResult.ticker} searchResult={searchResult} />
+        {results.map((searchResult, index) => (
+          <List.Item
+            key={index}
+            title={searchResult.ticker}
+            subtitle={searchResult.name}
+            accessories={[{ icon: Icon.Document, text: searchResult.currency_name }]}
+            actions={
+              <ActionPanel>
+                <ActionPanel.Section>
+                <Action
+                  icon={Icon.Plus}
+                  title="Add Ticker"
+                  onAction={() => handleCreate(searchResult)}
+                />
+                </ActionPanel.Section>
+              </ActionPanel>
+            }
+          />
         ))}
       </List.Section>
     </List>
-  );
-}
-
-function SearchListItem({ searchResult }: { searchResult: SearchResult }) {
-  return (
-    <List.Item
-      title={searchResult.ticker}
-      subtitle={searchResult.market}
-      accessories={[{ icon: Icon.Document, text: searchResult.currency_name }]}
-      actions={
-        <ActionPanel>
-          <ActionPanel.Section>
-            <Action.OpenInBrowser title="Open in Browser" url={searchResult.url} />
-          </ActionPanel.Section>
-        </ActionPanel>
-      }
-    />
   );
 }
 
@@ -74,8 +83,12 @@ function useSearch() {
 }
 
 async function performSearch(searchText: string, signal: AbortSignal): Promise<SearchResult[]> {
-  const tickerId = searchText.length === 0 ? "SPY" : searchText
-  const tickerDetailsUrl = `https://api.polygon.io/v3/reference/tickers/${tickerId}?apiKey=mxAPLuUuzG8GSi3zC7e7ZZpa_ggQ5Pnf`;
+  if (searchText.length === 0) {
+    return [];
+  }
+
+  const searchTextUpper = searchText.toUpperCase();
+  const tickerDetailsUrl = `https://api.polygon.io/v3/reference/tickers/${searchTextUpper}?apiKey=mxAPLuUuzG8GSi3zC7e7ZZpa_ggQ5Pnf`;
 
   const response = await fetch(tickerDetailsUrl, {
     method: "get",
@@ -86,29 +99,25 @@ async function performSearch(searchText: string, signal: AbortSignal): Promise<S
     | {
         results: {
           ticker: string;
+          name: string,
           market: string;
           locale: string;
           currency_name: string;
-        }[];
+        };
       }
-    | { code: string; message: string };
+    | { status: string; error: string };
 
-  if (!response.ok || "message" in json) {
-    throw new Error("message" in json ? json.message : response.statusText);
+  if (!response.ok || "error" in json) {
+    throw new Error("error" in json ? json.error : response.statusText);
   }
 
-  return json.results.map((result) => {
-    return {
-      ticker: result.ticker,
-      market: result.market,
-      locale: result.locale,
-      currency_name: result.currency_name,
-    };
-  });
+  const { results } = json;
+  return [results];
 }
 
 interface SearchResult {
   ticker: string,
+  name: string,
   market: string,
   locale: string,
   currency_name: string,

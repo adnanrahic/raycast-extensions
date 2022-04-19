@@ -1,91 +1,93 @@
 import { useCallback, useEffect, useState } from "react";
 import { nanoid } from "nanoid";
 import { ActionPanel, Icon, List, LocalStorage } from "@raycast/api";
-import { Todo } from "./types";
-import { CreateTodoAction, DeleteTodoAction, EmptyView, ViewTodoAction } from "./components";
+import { Stock } from "./types";
+import { CreateStockAction, DeleteStockAction, EmptyView, ViewStockAction } from "./components";
 
 type State = {
   isLoading: boolean;
   searchText: string;
-  todos: Todo[];
+  stocks: Stock[];
 };
 
 export default function Command() {
   const [state, setState] = useState<State>({
     isLoading: true,
     searchText: "",
-    todos: [],
+    stocks: [],
   });
 
   useEffect(() => {
     (async () => {
-      const storedTodos = await LocalStorage.getItem<string>("todos");
+      const storedStocks = await LocalStorage.getItem<string>("stocks");
 
-      if (!storedTodos) {
+      if (!storedStocks) {
         setState((previous) => ({ ...previous, isLoading: false }));
         return;
       }
 
       try {
-        const todos: Todo[] = JSON.parse(storedTodos);
-        setState((previous) => ({ ...previous, todos, isLoading: false }));
+        const stocks: Stock[] = JSON.parse(storedStocks);
+        setState((previous) => ({ ...previous, stocks, isLoading: false }));
       } catch (e) {
-        // can't decode todos
-        setState((previous) => ({ ...previous, todos: [], isLoading: false }));
+        // can't decode stocks
+        setState((previous) => ({ ...previous, stocks: [], isLoading: false }));
       }
     })();
   }, []);
 
   useEffect(() => {
-    LocalStorage.setItem("todos", JSON.stringify(state.todos));
-  }, [state.todos]);
+    LocalStorage.setItem("stocks", JSON.stringify(state.stocks));
+  }, [state.stocks]);
 
   const handleCreate = useCallback(
-    (title: string, ticker: object) => {
-      const newTodos = [...state.todos, { id: nanoid(), title, ticker }];
-      setState((previous) => ({ ...previous, todos: newTodos, searchText: "" }));
+    (ticker: object) => {
+      const newStocks = [...state.stocks, { id: nanoid(), ticker }];
+      setState((previous) => ({ ...previous, stocks: newStocks, searchText: "" }));
     },
-    [state.todos, setState]
+    [state.stocks, setState]
   );
 
   const handleDelete = useCallback(
     (index: number) => {
-      const newTodos = [...state.todos];
-      newTodos.splice(index, 1);
-      setState((previous) => ({ ...previous, todos: newTodos }));
+      const newStocks = [...state.stocks];
+      newStocks.splice(index, 1);
+      setState((previous) => ({ ...previous, stocks: newStocks }));
     },
-    [state.todos, setState]
+    [state.stocks, setState]
   );
 
   return (
     <List
       enableFiltering
       isLoading={state.isLoading}
-      navigationTitle="Search Stock Tickers"
-      searchBarPlaceholder="Search Stock Tickers"
+      navigationTitle="Filter your favorite stock tickers"
+      searchBarPlaceholder="Filter your favorite stock tickers"
       searchText={state.searchText}
       onSearchTextChange={(newValue) => {
         setState((previous) => ({ ...previous, searchText: newValue }));
       }}
     >
       <EmptyView
-        todos={state.todos}
+        stocks={state.stocks}
         searchText={state.searchText}
         onCreate={handleCreate}
       />
 
-      {state.todos.map((todo, index) => (
+      {state.stocks.map((stock, index) => (
         <List.Item
-          key={todo.id}
-          title={todo.title}
+          key={stock.id}
+          title={stock.ticker.ticker}
+          subtitle={stock.ticker.name}
+          accessories={[{ icon: Icon.Document, text: stock.ticker.currency_name }]}
           actions={
             <ActionPanel>
               <ActionPanel.Section>
-                <ViewTodoAction todo={todo} />
+                <ViewStockAction stock={stock} />
               </ActionPanel.Section>
               <ActionPanel.Section>
-                <CreateTodoAction onCreate={handleCreate} />
-                <DeleteTodoAction onDelete={() => handleDelete(index)} />
+                <CreateStockAction onCreate={handleCreate} />
+                <DeleteStockAction onDelete={() => handleDelete(index)} />
               </ActionPanel.Section>
             </ActionPanel>
           }

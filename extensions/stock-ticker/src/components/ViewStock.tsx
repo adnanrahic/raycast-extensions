@@ -1,5 +1,5 @@
 import { Detail } from "@raycast/api";
-import { Todo } from "../types";
+import { Stock } from "../types";
 
 const markdown = `
 # Pikachu
@@ -9,8 +9,8 @@ const markdown = `
 Pikachu that can generate powerful electricity have cheek sacs that are extra soft and super stretchy.
 `;
 
-function ViewTodoAction(props: { todo: Todo }) {
-  // load todo props to create chart
+function ViewStockAction(props: { stock: Stock }) {
+  // load stock props to create chart
 
   return (
     <Detail
@@ -35,4 +35,4 @@ function ViewTodoAction(props: { todo: Todo }) {
   );
 }
 
-export default ViewTodoAction;
+export default ViewStockAction;

@@ -1,7 +1,12 @@
-interface Todo {
+interface Stock {
   id: string;
-  title: string;
-  ticker: object;
+  ticker: {
+    ticker: string;
+    name: string;
+    market: string;
+    locale: string;
+    currency_name: string;
+  };
 }
 
-export type { Todo };
+export type { Stock };
