@@ -1,19 +1,46 @@
-import { Detail } from "@raycast/api";
-import { Stock } from "../types";
+import { Detail, Icon, showToast, Toast } from "@raycast/api";
+import { useState, useEffect, useRef, useCallback } from "react";
+import fetch, { AbortError } from "node-fetch";
+import { Stock, Aggregates } from "../types";
+import moment from 'moment';
+import dedent from "dedent-js";
 
+/**
+ * Component
+ * @param props 
+ * @returns <Detail>
+ */
 function ViewStockAction(props: { stock: Stock }) {
-  // load stock props to create chart
   const { stock } = props;
+  const [results, isLoading, get] = useGet();
+  
+  useEffect(() => {
+    get(stock.ticker.ticker);
+  }, []);  
+
+  const aggregates = results
+  .sort((a, b) => {
+    return Number(b.timestamp) - Number(a.timestamp);
+  })
+  .reduce((markdown, r) => {
+    let line = dedent(`
+      ### ${moment(r.timestamp).format('MMMM Do')}
+      ⭕${r.open} 🚫${r.close} ⬆️${r.high} ⬇️${r.low}
+      \n
+    `);
+
+    markdown += line;
+    return markdown;
+  }, '');
+
   const markdown = `
-  # ${stock.ticker.name}
-
-  ![](https://assets.pokemon.com/assets/cms2/img/pokedex/full/025.png)
-
-  Pikachu that can generate powerful electricity have cheek sacs that are extra soft and super stretchy.
+  ${aggregates}
   `;
+
 
   return (
     <Detail
+      isLoading={isLoading}
       markdown={markdown}
       navigationTitle={stock.ticker.ticker}
       metadata={
@@ -32,6 +59,95 @@ function ViewStockAction(props: { stock: Stock }) {
       }
     />
   );
+}
+
+function useGet() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [results, setResults] = useState<Aggregates[]>([]);
+  const cancelRef = useRef<AbortController | null>(null);
+
+  const get = useCallback(
+    async function get(ticker: string) {
+      cancelRef.current?.abort();
+      cancelRef.current = new AbortController();
+      setIsLoading(true);
+      try {
+        const results = await getAggregates(ticker, cancelRef.current.signal);
+        setResults(results);
+      } catch (error) {
+        if (error instanceof AbortError) {
+          return;
+        }
+        console.error("search error", error);
+        showToast({
+          style: Toast.Style.Failure,
+          title: "Could not perform search",
+          message: String(error),
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [cancelRef, setIsLoading, setResults]
+  );
+
+  useEffect(() => {
+    get("");
+    return () => {
+      cancelRef.current?.abort();
+    };
+  }, []);
+
+  return [results, isLoading, get] as const;
+}
+
+async function getAggregates( ticker: string, signal: AbortSignal): Promise<Aggregates[]> {
+  const apiKey = 'mxAPLuUuzG8GSi3zC7e7ZZpa_ggQ5Pnf'
+
+  const today = moment().format('YYYY-MM-DD');
+  const lastMonth = moment(today).subtract(30, 'days').format('YYYY-MM-DD');
+
+  const dateFrom = lastMonth;
+  const dateTo = today;
+
+  const aggregatesUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${dateFrom}/${dateTo}?adjusted=true&sort=asc&limit=120&apiKey=${apiKey}`;
+
+  const response = await fetch(aggregatesUrl, {
+    method: "get",
+    signal: signal,
+  });
+
+  const json = (await response.json()) as
+    | {
+        resultsCount: number;
+        results: {
+          o: number;
+          c: number;
+          h: number;
+          l: number;
+          t: string;
+        }[];
+      }
+    | { status: string; error: string };
+
+  if (!response.ok || "error" in json) {
+    throw new Error("error" in json ? json.error : response.statusText);
+  }
+  const { results, resultsCount } = json;
+
+  if (!resultsCount || resultsCount === 0) {
+    throw new Error("No result for this date.");
+  }
+
+  return results.map(result => {
+    return {
+      open: result.o,
+      close: result.c,
+      high: result.h,
+      low: result.l,
+      timestamp: result.t,
+    };
+  });
 }
 
 export default ViewStockAction;

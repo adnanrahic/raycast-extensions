@@ -1,14 +1,15 @@
 import { ActionPanel, List, showToast, Action, Toast, Icon, useNavigation } from "@raycast/api";
 import { useState, useEffect, useRef, useCallback } from "react";
 import fetch, { AbortError } from "node-fetch";
+import { Ticker } from "../types";
 
-export default function Command(props: { onCreate: (ticker: object) => void }) {
+export default function Command(props: { onCreate: (ticker: Ticker) => void }) {
   const [results, isLoading, search] = useSearch();
   const { onCreate } = props;
   const { pop } = useNavigation();
 
   const handleCreate = useCallback(
-    (ticker: object) => {
+    (ticker: Ticker) => {
       onCreate(ticker);
       pop();
     },
@@ -44,7 +45,7 @@ export default function Command(props: { onCreate: (ticker: object) => void }) {
 
 function useSearch() {
   const [isLoading, setIsLoading] = useState(true);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<Ticker[]>([]);
   const cancelRef = useRef<AbortController | null>(null);
 
   const search = useCallback(
@@ -82,7 +83,7 @@ function useSearch() {
   return [results, isLoading, search] as const;
 }
 
-async function performSearch(searchText: string, signal: AbortSignal): Promise<SearchResult[]> {
+async function performSearch(searchText: string, signal: AbortSignal): Promise<Ticker[]> {
   if (searchText.length === 0) {
     return [];
   }
@@ -120,12 +121,4 @@ async function performSearch(searchText: string, signal: AbortSignal): Promise<S
     currencyName: results.currency_name.toUpperCase(),
   };
   return [searchResult];
-}
-
-interface SearchResult {
-  ticker: string,
-  name: string,
-  market: string,
-  locale: string,
-  currencyName: string,
 }

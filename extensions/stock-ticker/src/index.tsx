@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { nanoid } from "nanoid";
 import { ActionPanel, Icon, List, LocalStorage } from "@raycast/api";
-import { Stock } from "./types";
+import { Stock, Ticker } from "./types";
 import { CreateStockAction, DeleteStockAction, EmptyView, ViewStockAction } from "./components";
 
 type State = {
@@ -41,7 +41,7 @@ export default function Command() {
   }, [state.stocks]);
 
   const handleCreate = useCallback(
-    (ticker: object) => {
+    (ticker: Ticker) => {
       const newStocks = [...state.stocks, { id: nanoid(), ticker }];
       setState((previous) => ({ ...previous, stocks: newStocks, searchText: "" }));
     },

@@ -1,8 +1,8 @@
 import { ActionPanel, List } from "@raycast/api";
-import { Stock } from "../types";
+import { Stock, Ticker } from "../types";
 import CreateStockAction from "./CreateStockAction";
 
-function EmptyView(props: { stocks: Stock[]; searchText: string; onCreate: (ticker: object) => void }) {
+function EmptyView(props: { stocks: Stock[]; searchText: string; onCreate: (ticker: Ticker) => void }) {
   if (props.stocks.length > 0) {
     return (
       <List.EmptyView
