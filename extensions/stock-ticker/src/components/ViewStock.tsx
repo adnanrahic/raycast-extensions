@@ -1,9 +1,13 @@
 import { Detail, Icon, showToast, Toast } from "@raycast/api";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAsync } from "react-use";
+import ReactDOMServer from "react-dom/server";
 import fetch, { AbortError } from "node-fetch";
 import { Stock, Aggregates } from "../types";
 import moment from 'moment';
 import dedent from "dedent-js";
+import LineChart from "../utils/LineChart";
+// import getAggregates from "../utils/GetAggregates";
 
 /**
  * Component
@@ -12,30 +16,37 @@ import dedent from "dedent-js";
  */
 function ViewStockAction(props: { stock: Stock }) {
   const { stock } = props;
+
   const [results, isLoading, get] = useGet();
-  
   useEffect(() => {
     get(stock.ticker.ticker);
-  }, []);  
+  }, [results.chart]);
 
-  const aggregates = results
-  .sort((a, b) => {
-    return Number(b.timestamp) - Number(a.timestamp);
-  })
-  .reduce((markdown, r) => {
-    let line = dedent(`
-      ### ${moment(r.timestamp).format('MMMM Do')}
-      ⭕${r.open} 🚫${r.close} ⬆️${r.high} ⬇️${r.low}
-      \n
-    `);
+  // const markdown = results
+  //   .sort((a, b) => {
+  //     return Number(b.timestamp) - Number(a.timestamp);
+  //   })
+  //   .reduce((markdown, r) => {
+  //     let line = dedent(`
+  //       ### ${moment(r.timestamp).format('MMMM Do')}
+  //       ⭕${r.open} 🚫${r.close} ⬆️${r.high} ⬇️${r.low}
+  //       \n
+  //     `);
 
-    markdown += line;
-    return markdown;
-  }, '');
+  //     markdown += line;
+  //     return markdown;
+  //   }, '');
 
-  const markdown = `
-  ${aggregates}
-  `;
+  const { aggregates, chart, trend, trendPerc, fHigh, lHigh } = results;
+
+  const markdown = dedent(`
+    ${fHigh}
+    ${lHigh}
+    ${trend}
+    ${trendPerc}
+    <img src="data:image/svg+xml,${encodeURIComponent(chart)}" />
+  `);
+
 
 
   return (
@@ -101,11 +112,11 @@ function useGet() {
   return [results, isLoading, get] as const;
 }
 
-async function getAggregates( ticker: string, signal: AbortSignal): Promise<Aggregates[]> {
+async function getAggregates( ticker: string, signal: AbortSignal): Promise<any[]> {
   const apiKey = 'mxAPLuUuzG8GSi3zC7e7ZZpa_ggQ5Pnf'
 
   const today = moment().format('YYYY-MM-DD');
-  const lastMonth = moment(today).subtract(30, 'days').format('YYYY-MM-DD');
+  const lastMonth = moment(today).subtract(10, 'days').format('YYYY-MM-DD');
 
   const dateFrom = lastMonth;
   const dateTo = today;
@@ -139,7 +150,7 @@ async function getAggregates( ticker: string, signal: AbortSignal): Promise<Aggr
     throw new Error("No result for this date.");
   }
 
-  return results.map(result => {
+  const aggregates = results.map(result => {
     return {
       open: result.o,
       close: result.c,
@@ -148,6 +159,41 @@ async function getAggregates( ticker: string, signal: AbortSignal): Promise<Aggr
       timestamp: result.t,
     };
   });
+
+  const data = aggregates
+    .map((r, i) => {
+      return {
+        label: moment(r.timestamp).format('MMM Do'),
+        x: i,
+        y: r.high,
+      };
+    });
+
+  const chart = ReactDOMServer.renderToString(
+    LineChart({
+      width: 500,
+      height: 400,
+      data: data,
+      horizontalGuides: 7,
+      precision: 2,
+      verticalGuides: 7,
+    })
+  );
+
+  const { high: fHigh } = aggregates.shift();
+  const { high: lHigh } = aggregates.pop();
+  const trend = lHigh - fHigh;
+  // (New Price - Old Price) / Old Price x 100
+  const trendPerc = (lHigh - fHigh) / fHigh * 100;
+
+  return {
+    aggregates,
+    chart,
+    trend,
+    trendPerc,
+    fHigh,
+    lHigh,
+  };
 }
 
 export default ViewStockAction;
