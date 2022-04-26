@@ -18,14 +18,15 @@ function ViewStockAction(props: { stock: Stock }) {
   const [results, get] = useGet();
   useEffect(() => {
     get(stock.ticker.ticker);
-  }, [results]);
+  }, [results.isLoading]);
 
   const { chart, trend, trendPercentage, newHigh, isLoading } = results;
 
   const markdown = dedent(`
     ## ${stock.ticker.ticker} ${stock.ticker.name}
-    **${ (trendPercentage < 0) ? "⬇️" : "⬆️" } ${newHigh}${stock.ticker.currencyName}**
-    ${trend}${stock.ticker.currencyName} (${trendPercentage}%)
+    **${ (trendPercentage < 0) ? "⬇️" : "⬆️" } ${newHigh} ${stock.ticker.currencyName}**
+  
+    ${trend} ${stock.ticker.currencyName} (${trendPercentage}%)
 
     <img src="data:image/svg+xml,${encodeURIComponent(chart)}" />
   `);
