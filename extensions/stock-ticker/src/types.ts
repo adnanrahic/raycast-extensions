@@ -12,11 +12,11 @@ interface Ticker {
 }
 
 interface Aggregates {
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-  timestamp: string;
+  chart: string;
+  trend: number;
+  trendPercentage: number;
+  newHigh: number;
+  isLoading: boolean;
 }
 
 export type { Stock, Ticker, Aggregates };

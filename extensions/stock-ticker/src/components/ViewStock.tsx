@@ -1,13 +1,11 @@
-import { Detail, Icon, showToast, Toast } from "@raycast/api";
+import { Detail, showToast, Toast } from "@raycast/api";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useAsync } from "react-use";
 import ReactDOMServer from "react-dom/server";
 import fetch, { AbortError } from "node-fetch";
 import { Stock, Aggregates } from "../types";
 import moment from 'moment';
 import dedent from "dedent-js";
 import LineChart from "../utils/LineChart";
-// import getAggregates from "../utils/GetAggregates";
 
 /**
  * Component
@@ -17,37 +15,20 @@ import LineChart from "../utils/LineChart";
 function ViewStockAction(props: { stock: Stock }) {
   const { stock } = props;
 
-  const [results, isLoading, get] = useGet();
+  const [results, get] = useGet();
   useEffect(() => {
     get(stock.ticker.ticker);
-  }, [results.chart]);
+  }, [results]);
 
-  // const markdown = results
-  //   .sort((a, b) => {
-  //     return Number(b.timestamp) - Number(a.timestamp);
-  //   })
-  //   .reduce((markdown, r) => {
-  //     let line = dedent(`
-  //       ### ${moment(r.timestamp).format('MMMM Do')}
-  //       ⭕${r.open} 🚫${r.close} ⬆️${r.high} ⬇️${r.low}
-  //       \n
-  //     `);
-
-  //     markdown += line;
-  //     return markdown;
-  //   }, '');
-
-  const { aggregates, chart, trend, trendPerc, fHigh, lHigh } = results;
+  const { chart, trend, trendPercentage, newHigh, isLoading } = results;
 
   const markdown = dedent(`
-    ${fHigh}
-    ${lHigh}
-    ${trend}
-    ${trendPerc}
+    ## ${stock.ticker.ticker} ${stock.ticker.name}
+    **${ (trendPercentage < 0) ? "⬇️" : "⬆️" } ${newHigh}${stock.ticker.currencyName}**
+    ${trend}${stock.ticker.currencyName} (${trendPercentage}%)
+
     <img src="data:image/svg+xml,${encodeURIComponent(chart)}" />
   `);
-
-
 
   return (
     <Detail
@@ -73,15 +54,20 @@ function ViewStockAction(props: { stock: Stock }) {
 }
 
 function useGet() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [results, setResults] = useState<Aggregates[]>([]);
+  const loadingResults = {
+    chart: '',
+    trend: 0,
+    trendPercentage: 0,
+    newHigh: 0,
+    isLoading: true,
+  };
+  const [results, setResults] = useState<Aggregates>(loadingResults);
   const cancelRef = useRef<AbortController | null>(null);
 
   const get = useCallback(
     async function get(ticker: string) {
       cancelRef.current?.abort();
       cancelRef.current = new AbortController();
-      setIsLoading(true);
       try {
         const results = await getAggregates(ticker, cancelRef.current.signal);
         setResults(results);
@@ -95,11 +81,9 @@ function useGet() {
           title: "Could not perform search",
           message: String(error),
         });
-      } finally {
-        setIsLoading(false);
       }
     },
-    [cancelRef, setIsLoading, setResults]
+    [cancelRef, setResults]
   );
 
   useEffect(() => {
@@ -109,10 +93,10 @@ function useGet() {
     };
   }, []);
 
-  return [results, isLoading, get] as const;
+  return [results, get] as const;
 }
 
-async function getAggregates( ticker: string, signal: AbortSignal): Promise<any[]> {
+async function getAggregates( ticker: string, signal: AbortSignal): Promise<Aggregates> {
   const apiKey = 'mxAPLuUuzG8GSi3zC7e7ZZpa_ggQ5Pnf'
 
   const today = moment().format('YYYY-MM-DD');
@@ -172,7 +156,7 @@ async function getAggregates( ticker: string, signal: AbortSignal): Promise<any[
   const chart = ReactDOMServer.renderToString(
     LineChart({
       width: 500,
-      height: 400,
+      height: 350,
       data: data,
       horizontalGuides: 7,
       precision: 2,
@@ -180,19 +164,21 @@ async function getAggregates( ticker: string, signal: AbortSignal): Promise<any[
     })
   );
 
-  const { high: fHigh } = aggregates.shift();
-  const { high: lHigh } = aggregates.pop();
-  const trend = lHigh - fHigh;
-  // (New Price - Old Price) / Old Price x 100
-  const trendPerc = (lHigh - fHigh) / fHigh * 100;
+  if (!aggregates || aggregates.length === 0) {
+    throw new Error("No aggregate values for this date.");
+  }
+
+  const oldHigh = aggregates[0].high;
+  const newHigh = aggregates[aggregates.length - 1].high;
+  const trend = Number((newHigh - oldHigh).toFixed(2));
+  const trendPercentage = Number(((newHigh - oldHigh) / oldHigh * 100).toFixed(2));
 
   return {
-    aggregates,
     chart,
     trend,
-    trendPerc,
-    fHigh,
-    lHigh,
+    trendPercentage,
+    newHigh,
+    isLoading: false,
   };
 }
 
